@@ -1,0 +1,610 @@
+OrganizeHypergraph:=function(DisorganizedHyper) //Take a enumerated set of enumerated sets {{1},{2,3},{1,2,3}}$, and organize it via enumerated set cardinality. No labeling, leaving that to CleanHG.
+    clean_graph:=[[]];
+    max_len:=1;
+    for edge in DisorganizedHyper do
+        len:=#edge;
+        loop_end:=len-max_len;
+        for i:= 1 to loop_end do//Add additional bins for hyperedge lengths as they occur.
+            Append(~clean_graph,[]);
+        end for;
+        new_max:=Max({len,max_len});
+        max_len:=new_max;//establish current maximum hyperedge size.
+        Include(~clean_graph[len],edge);
+    end for;
+//At extraction, use IndexedSetToSet to remove the indexing of the edge set (which is forced upon us)
+    return clean_graph;
+end function; 
+
+
+
+
+CleanHG:=function(Badhypergraph)//If a hypergraph has a weird labeling of vertices, this cleans that up. 
+    cleangraph:=[];
+    oldlabel:={@@};
+    n:=#Badhypergraph;
+
+    for i in  {1..n} do 
+        DFace:=Badhypergraph[i];
+        d:=#DFace;
+        for j in {1..d} do
+            edge:=DFace[j];
+            for vertex in edge do
+                Include(~oldlabel, vertex);
+            end for;
+        end for;
+    end for;
+    m:=#oldlabel;
+    maxold,_:=Max(oldlabel);
+
+    if maxold eq m then
+        mapgraph:=[];
+        for i in {1..m} do
+            Include(~mapgraph,<oldlabel[i],oldlabel[i]>);
+        end for;
+        newlabel:= {@ i: i in {1..m} @};
+        translation:=map< oldlabel -> newlabel | mapgraph>;
+        for i:=1 to #Badhypergraph do
+            newdgraph:=[];
+            for faces in Badhypergraph[i] do
+                Include(~newdgraph, translation(faces));
+            end for;
+            Append(~cleangraph, newdgraph);
+        end for;
+        inv_translation:=translation;
+        return cleangraph, m, translation, inv_translation;
+    else
+        mapgraph:=[];
+        for i in {1..m} do
+            Include(~mapgraph,<oldlabel[i],i>);
+        end for;
+        invmapgraph:=[];
+        for i in {1..m} do
+            Include(~invmapgraph,<i,oldlabel[i]>);
+        end for;
+        newlabel:= {@ i: i in {1..m} @};
+        translation:=map< oldlabel -> newlabel | mapgraph>;
+        inv_translation:=map< newlabel -> oldlabel | invmapgraph>;
+        for i:=1 to #Badhypergraph do
+            newdgraph:=[];
+            for faces in Badhypergraph[i] do
+                Include(~newdgraph, translation(faces));
+            end for;
+            Append(~cleangraph, newdgraph);
+        end for;
+        return cleangraph, m, translation,inv_translation; // output the relabeled hypergraph, the number of distinct vertices in the hypergraph, and the translation from old vertex names to new vertex names
+    end if;
+end function;
+
+HGScrambler:=function(CleanHG) //Use this if you want to test resilience to relabeling vertices.
+    cleangraph:=[];
+    oldlabel:={@@};
+    n:=#CleanHG;
+
+    for i in  {1..n} do 
+        DFace:=CleanHG[i];
+        d:=#DFace;
+        for j in {1..d} do
+            edge:=DFace[j];
+            for vertex in edge do
+                Include(~oldlabel, vertex);
+            end for;
+        end for;
+    end for;
+    m:=#oldlabel;
+    sym_m:=Sym(m); //create the symmetric group on m letters (the vertices)
+    perm:=Random(sym_m); //choose a random permutation
+    perm_matrix:=PermutationMatrix(Rationals(),perm);//created the permutation matrix of the permutation
+    rows_perm:=RowSequence(perm_matrix);
+  
+    mapgraph:=[];
+    for i in {1..m} do
+        Include(~mapgraph,<oldlabel[i],Index(rows_perm[i], 1)>);//make a map that will relabel vertices according to the previously made permutation, Index will take the row i and state which column 1 occurs in, essentially defining $i->j$ for a permutation.
+    end for;
+    invmapgraph:=[];
+    for i in {1..m} do
+        Include(~invmapgraph,<Index(rows_perm[i], 1),oldlabel[i]>);
+    end for;
+    newlabel:= {@ i: i in {1..m} @};
+    translation:=map< oldlabel -> newlabel | mapgraph>;
+    inv_translation:=map< newlabel -> oldlabel | invmapgraph>;
+    for i:=1 to #CleanHG do
+        newdgraph:=[];
+        for faces in CleanHG[i] do
+            Include(~newdgraph, translation(faces));
+        end for;
+        Append(~cleangraph, newdgraph);
+    end for;
+    inv_translation:=translation;
+    return cleangraph, m, translation, inv_translation;
+
+end function;
+
+
+MountainRangeMaker:= function(chain_length: dim:=3, start:=1)//make a chain of 
+    x:=chain_length;
+    vertex:=start;
+    simplex:=[];
+    for i in {1..(dim-1)} do
+        Append(~simplex,[]);
+    end for;
+    chain:=[];
+    for i in {1..x} do
+            mountain:={vertex};
+            for k in {1..dim-1} do 
+                Append(~mountain,vertex+k);
+            end for;
+        Append(~chain,mountain);
+        vertex+:=dim-1;
+    end for;
+    Append(~simplex,chain);
+    return simplex;
+end function;
+
+FanCreator:=function(fan_pieces: center:=1) //Fan pieces look like [2,3]
+    x:=#fan_pieces;
+    vertex:=center;
+    simplex:=[];
+    Append(~simplex,[]);
+    Append(~simplex,[]);
+    fans:=[];
+    for i in {1..x} do
+        for j in {1..fan_pieces[i]} do
+            triangle:={center,vertex+1, vertex+2};
+            Append(~fans,triangle);
+            vertex+:=1;
+        end for;
+        vertex+:=1;
+    end for;
+    Append(~simplex,fans);
+    return simplex;
+end function;
+
+PizzaCreator:=function(pizza_slices: center:=1)
+    x:=pizza_slices;
+    vertex:=center;
+    simplex:=[];
+    Append(~simplex,[]);
+    Append(~simplex,[]);
+    fans:=[];
+    for j in {1..(x-1)} do
+        triangle:={center,vertex+1, vertex+2};
+        Append(~fans,triangle);
+        vertex+:=1;
+    end for;
+    last_triangle:={center,center+1, x+1};
+    Append(~fans,last_triangle);
+    Append(~simplex,fans);
+    return simplex;
+end function;
+
+
+CompleteHypergraph:=function(VertexCount, SizeOfEdges)
+    CompleteHyperGraph:=[];
+    empty:=SizeOfEdges-1;
+    for i in {1..empty} do
+        Append(~CompleteHyperGraph,[]);
+    end for;
+    SetOfVertices:={};
+    for i in {1..VertexCount} do
+        Include(~SetOfVertices,i);
+    end for;
+    SubsetsOfVertices:=Subsets(SetOfVertices,SizeOfEdges);
+    return SubsetsOfVertices;
+end function;
+
+
+
+
+NoiseMaker:=function(OriginalHyper, Noise, NoisyVertex: NoisyConnection:=1) //Hypergraph looks like [[{}],[{}],...], Vertex looks like [{},{},] currently only adds noise to single vertex (named Noisy Vertex) within a single valence, i.e.e noise must have hyperedges all of the same cardinality.
+    cleanHG,max_vertex,translation,inv_translation:=CleanHG(OriginalHyper);
+    NewHyper:=[];
+    len:=#cleanHG;
+    ShiftedNoise:=[];
+    for edge in Noise do
+        d:=#edge;
+        newedge:={};
+        for vertex in edge do
+            if vertex eq NoisyConnection then
+                Include(~newedge, NoisyVertex);
+            else
+                Include(~newedge,vertex+max_vertex);
+            end if;
+        end for;
+        Append(~ShiftedNoise,newedge);
+    end for;
+    for i in {1..len} do
+        if i eq d then
+            NewEdges:=cleanHG[i];
+            for edges in ShiftedNoise do
+                Append(~NewEdges,edges);
+            end for;
+            Append(~NewHyper,NewEdges);
+        else
+            Append(~NewHyper,cleanHG[i]);
+        end if;
+    end for;
+    NewCleanHyper,new_max_vertex,new_new_translation,new_inv_translation:=CleanHG(NewHyper);
+    return NewCleanHyper;
+end function;
+
+
+NoiseMaker_CompleteHypergraph:=function(OriginalHyper,CompleteVertexCount,CompleteSizeOfEdges,NoisyVertex)
+    Kn:=CompleteHypergraph(CompleteVertexCount,CompleteSizeOfEdges);
+    NewHypergraph:=NoiseMaker(OriginalHyper, Kn, NoisyVertex);
+    return NewHypergraph;
+end function;
+
+ShiftHypergraphsVertices := function(Hypergraphs)//this code was written with Copilot.
+    // Hypergraphs: sequence of hypergraphs (each is a list of lists of sets)
+    // Returns: sequence of shifted hypergraphs, so that their vertices do not overlap
+
+    shifted_hypergraphs := [];
+    vertex_offset := 0;
+
+    for HG in Hypergraphs do
+        CleanHG_i, max_vertex_i, translation_i, inv_translation_i := CleanHG(HG);
+        shifted_HG := [];
+        for i in [1..#CleanHG_i] do
+            edges := [];
+            for edge in CleanHG_i[i] do
+                shifted_edge := {};
+                for v in edge do
+                    Include(~shifted_edge, v + vertex_offset);
+                end for;
+                Append(~edges, shifted_edge);
+            end for;
+            Append(~shifted_HG, edges);
+        end for;
+        Append(~shifted_hypergraphs, shifted_HG);
+        vertex_offset +:= max_vertex_i;
+    end for;
+
+    return shifted_hypergraphs;
+end function;
+
+ConnectHypergraphsViaVertices := function(Hypergraph1, Vertex1, Hypergraph2, Vertex2)//The Following function was written with Copilot.
+    // Clean and relabel both hypergraphs to avoid vertex collisions
+    CleanHG1, max_vertex1, translation1, inv_translation1 := CleanHG(Hypergraph1);
+    CleanHG2, max_vertex2, translation2, inv_translation2 := CleanHG(Hypergraph2);
+
+    // Shift vertices in both hypergraphs so they do not overlap
+    shifted_hypergraphs := ShiftHypergraphsVertices([CleanHG1, CleanHG2]);
+    ShiftedHG1 := shifted_hypergraphs[1];
+    ShiftedHG2 := shifted_hypergraphs[2];
+
+    // Find the new names for the connection vertices after shifting
+    shifted_vertex1 := translation1(Vertex1);
+    shifted_vertex2 := translation2(Vertex2) + max_vertex1;
+
+    // Merge the two hypergraphs
+    MergedHypergraph := [];
+    for i in [1..Max(#ShiftedHG1, #ShiftedHG2)] do
+        edges1 := i le #ShiftedHG1 select ShiftedHG1[i] else [];
+        edges2 := i le #ShiftedHG2 select ShiftedHG2[i] else [];
+        Append(~MergedHypergraph, edges1 cat edges2);
+    end for;
+
+    // Replace all occurrences of shifted_vertex2 with shifted_vertex1 in the merged hypergraph
+    for i in [1..#MergedHypergraph] do
+        for j in [1..#MergedHypergraph[i]] do
+            edge := MergedHypergraph[i][j];
+            if shifted_vertex2 in edge then
+                new_edge := {};
+                for v in edge do
+                    if v eq shifted_vertex2 then
+                        Include(~new_edge, shifted_vertex1);
+                    else
+                        Include(~new_edge, v);
+                    end if;
+                end for;
+                MergedHypergraph[i][j] := new_edge;
+            end if;
+        end for;
+    end for;
+
+    // Clean up the merged hypergraph and keep track of all outputs
+    FinalHG, final_max_vertex, final_translation, final_inv_translation := CleanHG(MergedHypergraph);
+
+    // Return the new hypergraph and the mapping of the connected vertices
+    return FinalHG, final_max_vertex, final_translation, final_inv_translation, shifted_vertex1;
+end function;
+
+
+RenameVertex := function(Hypergraph, OldVertex, NewVertex)//This code was generated with copilot, it still needs to be tested.
+    // Returns a new hypergraph where all occurrences of OldVertex are replaced by NewVertex
+    NewHypergraph := [];
+    for i in [1..#Hypergraph] do
+        edges := [];
+        for edge in Hypergraph[i] do
+            new_edge := {};
+            for v in edge do
+                if v eq OldVertex then
+                    Include(~new_edge, NewVertex);
+                else
+                    Include(~new_edge, v);
+                end if;
+            end for;
+            Append(~edges, new_edge);
+        end for;
+        Append(~NewHypergraph, edges);
+    end for;
+    return NewHypergraph;
+end function;
+
+
+
+
+
+CreateConnectedHypergraphs:= function(hypergraphs,connections)//This code was generated with Copilot,it still needs to be tested
+    // hypergraphs: list of hypergraphs (each is a list of lists of sets)
+    // connections: list of tuples, each of the form <0,1,8,0,7>, meaning that mountain range 2,3, and 5 are all connected at vertex 1,8, and 7 respectively
+    // Suppose you have 4 mountain ranges, and you want to connect:
+    // - mountain 1 at vertex 3 to mountain 2 at vertex 1
+    // - mountain 2 at vertex 5 to mountain 4 at vertex 2
+    // Then, connections would be:
+    // [ <3, 1, 0, 0>, <0, 5, 0, 2> ]
+    //
+    // Each tuple is <i, v1, j, v2> meaning connect mountain i at vertex v1 to mountain j at vertex v2.
+    //end function;
+    // Step 1: Create all mountain ranges
+
+
+    // Step 1b: Shift all mountain ranges so their vertices do not overlap
+    shifted_hypergraphs := ShiftHypergraphsVertices(hypergraphs);
+
+    // Step 1c: Compute the vertex offsets for each mountain range
+    vertex_offsets := [];
+    offset := 0;
+    for i in [1..#shifted_hypergraphs] do
+        CleanHG_i, max_vertex_i, _, _ := CleanHG(shifted_hypergraphs[i]);
+        Append(~vertex_offsets, offset);
+        offset +:= max_vertex_i;
+    end for;
+
+    // Step 2: Shift the connection vertices according to the offsets
+    shifted_connections := [];
+    for j in [1..#connections] do //iterate over each vertex isomorpshism
+        conn:=connections[j];//isolate the specific tuple of vertices which are being made isomorphic
+        newconn:=<>;//initailize a new tuple
+        for i in [1..#conn] do//iterate over each entry in the tuple, which corresponds to each mountain 
+        //in our list of mountain ranges
+            if i eq 0 then//if that specific mountain range does not have any vertices which are apart of this isomorphism
+                Append(~newconn, 0);//continue to say that that mountain range is not included in the isomorphism
+            else
+                Append(~newconn, conn[i]+vertex_offsets[i]);//take that vertex in the isomorphism and shift it by the offset of the mountain range it is apart of
+            end if;
+        end for;
+        Append(~shifted_connections, newconn);//add the new shifted tuple to the list of all shifted tuples
+
+    end for;
+
+    // Step 2b: Rename connected vertices to be equal using RenameVertex
+
+    for conn in shifted_connections do//for all isomorphisms
+        offset:=offset+1;//make sure that the new vertex we are using to rename is not already in use
+        for j in [1..#conn] do//for each mountain range
+            if conn[j] ne 0 then//if that mountain range is apart of the isomorphism
+                shifted_v := conn[j];//the vertex which is to be made isomorphic
+                // Rename shifted_v in shifted_mountain_ranges[j] to offset
+                shifted_hypergraphs[j] := RenameVertex(shifted_hypergraphs[j], shifted_v, offset);
+            end if;
+        end for;
+    end for;
+
+    // Step 2c: Merge all shifted mountain ranges into a single hypergraph
+    merged_hypergraph := shifted_hypergraphs[1];
+    for i in [2..#shifted_hypergraphs] do
+        // Merge merged_hypergraph and shifted_mountain_ranges[i] without connecting any vertices
+        for j in [1..Max(#merged_hypergraph, #shifted_hypergraphs[i])] do
+            edges1 := j le #merged_hypergraph select merged_hypergraph[j] else [];
+            edges2 := j le #shifted_hypergraphs[i] select shifted_hypergraphs[i][j] else [];
+            if j le #merged_hypergraph then
+                merged_hypergraph[j] := edges1 cat edges2;
+            else
+                Append(~merged_hypergraph, edges2);
+            end if;
+        end for;
+    end for;
+
+
+    finalHG, final_max_vertex, final_translation, final_inv_translation := CleanHG(merged_hypergraph);
+
+return finalHG, final_max_vertex;
+end function;
+
+
+
+CreateConnectedMountainRanges := function(lengths, connections)//This code was generated with Copilot, it still needs to be adjusted to work
+    // lengths: sequence of integers, each is the length of a mountain range
+    // connections: list of tuples, each of the form <0,1,8,0,7>, meaning that mountain range 2,3, and 5 are all connected at vertex 1,8, and 7 respectively
+    // Suppose you have 4 mountain ranges, and you want to connect:
+    // - mountain 1 at vertex 3 to mountain 2 at vertex 1
+    // - mountain 2 at vertex 5 to mountain 4 at vertex 2
+    // Then, connections would be:
+    // [ <3, 1, 0, 0>, <0, 5, 0, 2> ]
+    //
+    // Each tuple is <i, v1, j, v2> meaning connect mountain i at vertex v1 to mountain j at vertex v2.
+    //end function;
+    // Step 1: Create all mountain ranges
+    mountain_ranges := [];
+    for i in [1..#lengths] do
+        range := MountainRangeMaker(lengths[i]);
+        Append(~mountain_ranges, range);
+    end for;
+
+
+
+    finalHG, final_max_vertex:= CreateConnectedHypergraphs(mountain_ranges, connections);
+
+return finalHG, final_max_vertex;
+end function;
+
+
+HypergraphToTensor:=function(BadHypergraph, d, K)
+    cleanHG,n,translation,inv_translation:=CleanHG(BadHypergraph);
+    hypergraph:=cleanHG[d];//isolate the d-faces of the hypergraph
+    frame:=[n: i in [1..d]];// make a V^n -> K tensor
+    Append(~frame,1);
+    T:= KTensorSpace(K, frame);
+    t:=T!0;//isolate the zero element
+    faces:= hypergraph;//renaming to make things look nice
+    for face in faces do//for each hyperedge
+        PermFace:=Permutations(face);//take all permutations of the elements
+        for PermSeq in PermFace do//for each permutation
+            FixedPerm:=Append(PermSeq,1);//making sure objects save correctly and don't get overwritten
+            Assign(~t,FixedPerm, 1);//at that input coordinate, assign a value of 1 to the tensor
+        end for;
+    end for;
+    //uncomment the following if you want to experiment with asserting that t is symmetric (which it is), or considering the associated fully nondegenerate tensor.
+    // s:=SymmetricTensor(t);
+    // u:=FullyNondegenerateTensor(s);
+    return t,n,translation;
+end function;
+
+
+
+//input:
+    //Adjacency Tensor of the d-uniform hypergraph
+    //field K (Tyupically Rationals())
+//output:
+    //identification of vertices contained in the socle
+
+function VertexInSocle(adj_tensor,d,K)
+    Der:=DerivationAlgebra(adj_tensor);//create the derivation algebra
+    _,D1:=Induce(Der,1);//induce on the first component
+    RD1:=RModule(D1);//Making the RModule that D1 acts on
+    Dim_RMod:=Dimension(RD1);//Keeping track of how many vertices are in
+    a,b,t:=SocleSeries(RD1);//constructing the socle series
+    socle_list:=[**];
+    for i:=1 to #b do
+        Append(~socle_list, [RD1.j in a[i]: j in [1..Dim_RMod]] );
+    end for;
+    return socle_list;
+end function;
+
+//---------------------------------------------------------
+
+//input:
+    //A d-uniform hypergraph
+    //The list of which vertices of the hypergraph are elements of the socle
+    //A boolean which says whether vertices are distinguished if they are in or NOT in the socle
+
+//output:
+    //discarded_hypergraph: hyperedges that were removed within the algorithm
+    //preserved_hypergraph: hyperedge which is used in subsequent recursive steps
+function HyperedgeCutter(hypergraph, d, socle_test, socle_looking_true)
+    discarded_hypergraph:=hypergraph;//Hypergraph which records which hyperedges were discarded
+    preserved_hypergraph:=[];//Hypergraph which records which hyperedges were not discarded
+    for i:=1 to d-1 do
+        Append(~preserved_hypergraph,[]);//initialize new hypergraph
+    end for;
+
+    distinguished_hyperedges:={};//this will save the distinguished hyperedges. It needs to be an enumerated set to account for repetition of hyperedges being added multiple times. 
+
+    for i:= 1 to #hypergraph[d] do//check each hyperedges
+        for j:= 1 to #socle_test do//each vertex has a boolean value to assign it (in socle) or (not in socle)
+            if socle_looking_true xor (not socle_test[j]) then //if socle_looking_true is T/F with the exclusive or of NOT the truth value of the vertex. This simplifies the code for identifying vertices based on whether or not they are in the socle. Distinguished hyperedges will be those with at least one distinguished vertex.
+                if j in hypergraph[d][i] then// if the distinguished vertex is in the hyperedge
+                    Include(~distinguished_hyperedges,hypergraph[d][i]); //add that hyperedge to our distinguished hyperedges
+                end if;
+                if j in discarded_hypergraph[d][i] then//if the distinguished vertex is in the hyperedge
+                    Exclude(~discarded_hypergraph[d][i],j);//Delete that vertex, as that hyperedge was distinguished
+                end if;
+
+            end if;
+        end for;
+    end for;
+
+    for edge in discarded_hypergraph[d] do //for each hyperedge in the hypergraph
+        if #edge ne d then//If that hypergraph had a vertex removed/distinguished vertex
+            Exclude(~discarded_hypergraph[d],edge); //remove that hyperedge
+        end if;
+    end for;
+
+    preserved_hyperedges:=SetToSequence(distinguished_hyperedges);//convert to sequence to remove possibly repeated hyperedges.
+    Append(~preserved_hypergraph,preserved_hyperedges);//add preserved hyperedges to preserved hypergraph
+
+
+return discarded_hypergraph, preserved_hypergraph;
+
+end function;
+//-----------------------------------------
+
+
+
+
+
+
+//input: 
+    //d-uniform hypergraph
+    //field K (typically Rationals())
+//output:
+
+//new_hypergraphbool is used to record the induction
+//socle_looking_true:=true means to distinguish vertices if they ARE in the socle. Set to false to distinguish vertices if they ARE NOT in the socle.
+function HyperDecomposition(current_hypergraph,d,K: old_preserved_history:=[**], old_discarded_history:=[**], old_translator:=[**], old_hypergraph_history:=[**], old_socle_history:=[**], new_hyper_bool:=false, socle_looking_true:=true, old_list_of_edges:=[])
+    Realtime();
+    Is_socle_looking_true:=socle_looking_true;//making sure this saves throughout the recursion
+    //The following if/then initializes objects and records data. It also does some cleaning of hypergraphs (just in case)
+    if new_hyper_bool then//If we are within the induction
+        current_hypergraph_history:=old_hypergraph_history;
+        Append(~current_hypergraph_history, [*"Hypergraph initialized in recursive step", current_hypergraph*]);
+        hypergraph, m, translation_new_hypergraph,inv_translation:=CleanHG(current_hypergraph); //Make sure hypergraph is clean
+        Append(~current_hypergraph_history,[*"hypergraph cleaned in recursive step", hypergraph*]);
+        current_translator:=old_translator;//save possible name changes
+        Append(~current_translator, [*"translation from cleaning HG within induction step",translation_new_hypergraph*]);
+        current_list_of_edges:=old_list_of_edges;
+        Append(~current_list_of_edges, #hypergraph[d]);//Keep track of how many total hyperedges we have
+        current_discarded_history:=old_discarded_history;//save the previous discarded hyperedges
+        current_preserved_history:=old_preserved_history;//save the previous preserved hyperedges
+        current_socle_history:=old_socle_history;//save the list of socles membership we used for our determination of distinguished vertices. 
+    else// We have just started, we must initialize everything before induction begins
+        current_hypergraph_history:=old_hypergraph_history;//initialize history of all hypergraphs
+        Append(~current_hypergraph_history,[*"hypergraph initialized at beginning of algorithm" ,current_hypergraph *]);
+        hypergraph, _, translation_initial_hypergraph:=CleanHG(current_hypergraph);  //make sure hypergraph starts out clean
+        Append(~current_hypergraph_history,[*"hypergraph cleaned in initial setup", hypergraph*]);
+        current_translator:=old_translator;//save possible name changes
+        Append(~current_translator, [*"translation from initializing HG at first step",translation_initial_hypergraph*]);
+        current_list_of_edges:=old_list_of_edges;
+        Append(~current_list_of_edges, #hypergraph[d]);//Keep track of how many total hyperedges we have
+        current_discarded_history:=old_discarded_history;//initialize the discarded hyperedges
+        current_preserved_history:=old_preserved_history;//initialize the preserved hyperedges
+        current_socle_history:=old_socle_history;//initialize the list of socles membership we use for our determination of distinguished vertices. 
+    end if;
+   
+    tensor,m,translation := HypergraphToTensor(hypergraph, d, K); //make the tensor
+    Append(~current_translator, [*"translation from creating tensor from hypergraph",translation*]);//At this step, the HypergraphToTensor does not re-translate since CleanHG has already been applied to everything, and CleanHG is idempotent, and is the identity so long as the labeling 1-m are being used for the set of m vertices. So adding this to translators is a sanity check
+    socle_list:=VertexInSocle(tensor,d,K);//record the vertex identification in regards to membership in the socle.
+
+    socle_test:=socle_list[1];//saving the boolean values to determine which hyperedges are removed
+    Append(~current_socle_history, socle_test);
+    discarded_hypergraph, preserved_hypergraph:=HyperedgeCutter(hypergraph, d, socle_test, socle_looking_true);
+
+    Append(~current_preserved_history, preserved_hypergraph);
+    Append(~current_discarded_history, discarded_hypergraph);
+
+    if #hypergraph[d] eq #preserved_hypergraph[d] then//no hyperedges were removed
+        print("Recursion ends because Socle is no longer catching mountain peaks in first module");
+        Realtime();
+        Append(~current_hypergraph_history, [*"final discarded hypergraph at algorithm termination", preserved_hypergraph*]);
+        return  current_preserved_history, current_discarded_history, current_translator, current_hypergraph_history, current_socle_history, current_list_of_edges, hypergraph;
+    else
+        print("current_preserved_history;");
+        current_preserved_history;
+        print("current_discarded_history;");
+        current_discarded_history;
+        print("current_translator;");
+        current_translator;
+        print("current_hypergraph_history;");
+        current_hypergraph_history;
+        print("current_socle_history;");
+        current_socle_history;
+        print("current_list_of_edges;");
+        current_list_of_edges;
+        print("hypergraph;");
+        hypergraph;
+        print("Entering next level of recursion");
+        return HyperDecomposition(current_hypergraph,d,K: old_preserved_history:=current_preserved_history, old_discarded_history:=current_discarded_history, old_translator:=current_translator, old_hypergraph_history:=current_hypergraph_history, old_socle_history:=current_socle_history, new_hyper_bool:=true, socle_looking_true:=Is_socle_looking_true, old_list_of_edges:=current_list_of_edges);
+    end if;
+end function;
+

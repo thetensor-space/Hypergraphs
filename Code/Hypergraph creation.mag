@@ -1,0 +1,319 @@
+MountainRangeMaker:= function(chain_length: dim:=3, start:=1)//make a chain of 
+    x:=chain_length;
+    vertex:=start;
+    simplex:=[];
+    for i in {1..(dim-1)} do
+        Append(~simplex,[]);
+    end for;
+    chain:=[];
+    for i in {1..x} do
+            mountain:={vertex};
+            for k in {1..dim-1} do 
+                Append(~mountain,vertex+k);
+            end for;
+        Append(~chain,mountain);
+        vertex+:=dim-1;
+    end for;
+    Append(~simplex,chain);
+    return simplex;
+end function;
+
+FanCreator:=function(fan_pieces: center:=1) //Fan pieces look like [2,3]
+    x:=#fan_pieces;
+    vertex:=center;
+    simplex:=[];
+    Append(~simplex,[]);
+    Append(~simplex,[]);
+    fans:=[];
+    for i in {1..x} do
+        for j in {1..fan_pieces[i]} do
+            triangle:={center,vertex+1, vertex+2};
+            Append(~fans,triangle);
+            vertex+:=1;
+        end for;
+        vertex+:=1;
+    end for;
+    Append(~simplex,fans);
+    return simplex;
+end function;
+
+PizzaCreator:=function(pizza_slices: center:=1)
+    x:=pizza_slices;
+    vertex:=center;
+    simplex:=[];
+    Append(~simplex,[]);
+    Append(~simplex,[]);
+    fans:=[];
+    for j in {1..(x-1)} do
+        triangle:={center,vertex+1, vertex+2};
+        Append(~fans,triangle);
+        vertex+:=1;
+    end for;
+    last_triangle:={center,center+1, x+1};
+    Append(~fans,last_triangle);
+    Append(~simplex,fans);
+    return simplex;
+end function;
+
+
+CompleteHypergraph:=function(VertexCount, SizeOfEdges)
+    CompleteHyperGraph:=[];
+    empty:=SizeOfEdges-1;
+    for i in {1..empty} do
+        Append(~CompleteHyperGraph,[]);
+    end for;
+    SetOfVertices:={};
+    for i in {1..VertexCount} do
+        Include(~SetOfVertices,i);
+    end for;
+    SubsetsOfVertices:=Subsets(SetOfVertices,SizeOfEdges);
+    return SubsetsOfVertices;
+end function;
+
+
+
+
+NoiseMaker:=function(OriginalHyper, Noise, NoisyVertex: NoisyConnection:=1) //Hypergraph looks like [[{}],[{}],...], Vertex looks like [{},{},] currently only adds noise to single vertex (named Noisy Vertex) within a single valence, i.e.e noise must have hyperedges all of the same cardinality.
+    cleanHG,max_vertex,translation,inv_translation:=CleanHG(OriginalHyper);
+    NewHyper:=[];
+    len:=#cleanHG;
+    ShiftedNoise:=[];
+    for edge in Noise do
+        d:=#edge;
+        newedge:={};
+        for vertex in edge do
+            if vertex eq NoisyConnection then
+                Include(~newedge, NoisyVertex);
+            else
+                Include(~newedge,vertex+max_vertex);
+            end if;
+        end for;
+        Append(~ShiftedNoise,newedge);
+    end for;
+    for i in {1..len} do
+        if i eq d then
+            NewEdges:=cleanHG[i];
+            for edges in ShiftedNoise do
+                Append(~NewEdges,edges);
+            end for;
+            Append(~NewHyper,NewEdges);
+        else
+            Append(~NewHyper,cleanHG[i]);
+        end if;
+    end for;
+    NewCleanHyper,new_max_vertex,new_new_translation,new_inv_translation:=CleanHG(NewHyper);
+    return NewCleanHyper;
+end function;
+
+
+NoiseMaker_CompleteHypergraph:=function(OriginalHyper,CompleteVertexCount,CompleteSizeOfEdges,NoisyVertex)
+    Kn:=CompleteHypergraph(CompleteVertexCount,CompleteSizeOfEdges);
+    NewHypergraph:=NoiseMaker(OriginalHyper, Kn, NoisyVertex);
+    return NewHypergraph;
+end function;
+
+ShiftHypergraphsVertices := function(Hypergraphs)//this code was written with Copilot.
+    // Hypergraphs: sequence of hypergraphs (each is a list of lists of sets)
+    // Returns: sequence of shifted hypergraphs, so that their vertices do not overlap
+
+    shifted_hypergraphs := [];
+    vertex_offset := 0;
+
+    for HG in Hypergraphs do
+        CleanHG_i, max_vertex_i, translation_i, inv_translation_i := CleanHG(HG);
+        shifted_HG := [];
+        for i in [1..#CleanHG_i] do
+            edges := [];
+            for edge in CleanHG_i[i] do
+                shifted_edge := {};
+                for v in edge do
+                    Include(~shifted_edge, v + vertex_offset);
+                end for;
+                Append(~edges, shifted_edge);
+            end for;
+            Append(~shifted_HG, edges);
+        end for;
+        Append(~shifted_hypergraphs, shifted_HG);
+        vertex_offset +:= max_vertex_i;
+    end for;
+
+    return shifted_hypergraphs;
+end function;
+
+ConnectHypergraphsViaVertices := function(Hypergraph1, Vertex1, Hypergraph2, Vertex2)//The Following function was written with Copilot.
+    // Clean and relabel both hypergraphs to avoid vertex collisions
+    CleanHG1, max_vertex1, translation1, inv_translation1 := CleanHG(Hypergraph1);
+    CleanHG2, max_vertex2, translation2, inv_translation2 := CleanHG(Hypergraph2);
+
+    // Shift vertices in both hypergraphs so they do not overlap
+    shifted_hypergraphs := ShiftHypergraphsVertices([CleanHG1, CleanHG2]);
+    ShiftedHG1 := shifted_hypergraphs[1];
+    ShiftedHG2 := shifted_hypergraphs[2];
+
+    // Find the new names for the connection vertices after shifting
+    shifted_vertex1 := translation1(Vertex1);
+    shifted_vertex2 := translation2(Vertex2) + max_vertex1;
+
+    // Merge the two hypergraphs
+    MergedHypergraph := [];
+    for i in [1..Max(#ShiftedHG1, #ShiftedHG2)] do
+        edges1 := i le #ShiftedHG1 select ShiftedHG1[i] else [];
+        edges2 := i le #ShiftedHG2 select ShiftedHG2[i] else [];
+        Append(~MergedHypergraph, edges1 cat edges2);
+    end for;
+
+    // Replace all occurrences of shifted_vertex2 with shifted_vertex1 in the merged hypergraph
+    for i in [1..#MergedHypergraph] do
+        for j in [1..#MergedHypergraph[i]] do
+            edge := MergedHypergraph[i][j];
+            if shifted_vertex2 in edge then
+                new_edge := {};
+                for v in edge do
+                    if v eq shifted_vertex2 then
+                        Include(~new_edge, shifted_vertex1);
+                    else
+                        Include(~new_edge, v);
+                    end if;
+                end for;
+                MergedHypergraph[i][j] := new_edge;
+            end if;
+        end for;
+    end for;
+
+    // Clean up the merged hypergraph and keep track of all outputs
+    FinalHG, final_max_vertex, final_translation, final_inv_translation := CleanHG(MergedHypergraph);
+
+    // Return the new hypergraph and the mapping of the connected vertices
+    return FinalHG, final_max_vertex, final_translation, final_inv_translation, shifted_vertex1;
+end function;
+
+
+RenameVertex := function(Hypergraph, OldVertex, NewVertex)//This code was generated with copilot, it still needs to be tested.
+    // Returns a new hypergraph where all occurrences of OldVertex are replaced by NewVertex
+    NewHypergraph := [];
+    for i in [1..#Hypergraph] do
+        edges := [];
+        for edge in Hypergraph[i] do
+            new_edge := {};
+            for v in edge do
+                if v eq OldVertex then
+                    Include(~new_edge, NewVertex);
+                else
+                    Include(~new_edge, v);
+                end if;
+            end for;
+            Append(~edges, new_edge);
+        end for;
+        Append(~NewHypergraph, edges);
+    end for;
+    return NewHypergraph;
+end function;
+
+
+
+
+
+CreateConnectedHypergraphs:= function(hypergraphs,connections)//This code was generated with Copilot,it still needs to be tested
+    // hypergraphs: list of hypergraphs (each is a list of lists of sets)
+    // connections: list of tuples, each of the form <0,1,8,0,7>, meaning that mountain range 2,3, and 5 are all connected at vertex 1,8, and 7 respectively
+    // Suppose you have 4 mountain ranges, and you want to connect:
+    // - mountain 1 at vertex 3 to mountain 2 at vertex 1
+    // - mountain 2 at vertex 5 to mountain 4 at vertex 2
+    // Then, connections would be:
+    // [ <3, 1, 0, 0>, <0, 5, 0, 2> ]
+    //
+    // Each tuple is <i, v1, j, v2> meaning connect mountain i at vertex v1 to mountain j at vertex v2.
+    //end function;
+    // Step 1: Create all mountain ranges
+
+
+    // Step 1b: Shift all mountain ranges so their vertices do not overlap
+    shifted_hypergraphs := ShiftHypergraphsVertices(hypergraphs);
+
+    // Step 1c: Compute the vertex offsets for each mountain range
+    vertex_offsets := [];
+    offset := 0;
+    for i in [1..#shifted_hypergraphs] do
+        CleanHG_i, max_vertex_i, _, _ := CleanHG(shifted_hypergraphs[i]);
+        Append(~vertex_offsets, offset);
+        offset +:= max_vertex_i;
+    end for;
+
+    // Step 2: Shift the connection vertices according to the offsets
+    shifted_connections := [];
+    for j in [1..#connections] do //iterate over each vertex isomorpshism
+        conn:=connections[j];//isolate the specific tuple of vertices which are being made isomorphic
+        newconn:=<>;//initailize a new tuple
+        for i in [1..#conn] do//iterate over each entry in the tuple, which corresponds to each mountain 
+        //in our list of mountain ranges
+            if i eq 0 then//if that specific mountain range does not have any vertices which are apart of this isomorphism
+                Append(~newconn, 0);//continue to say that that mountain range is not included in the isomorphism
+            else
+                Append(~newconn, conn[i]+vertex_offsets[i]);//take that vertex in the isomorphism and shift it by the offset of the mountain range it is apart of
+            end if;
+        end for;
+        Append(~shifted_connections, newconn);//add the new shifted tuple to the list of all shifted tuples
+
+    end for;
+
+    // Step 2b: Rename connected vertices to be equal using RenameVertex
+
+    for conn in shifted_connections do//for all isomorphisms
+        offset:=offset+1;//make sure that the new vertex we are using to rename is not already in use
+        for j in [1..#conn] do//for each mountain range
+            if conn[j] ne 0 then//if that mountain range is apart of the isomorphism
+                shifted_v := conn[j];//the vertex which is to be made isomorphic
+                // Rename shifted_v in shifted_mountain_ranges[j] to offset
+                shifted_hypergraphs[j] := RenameVertex(shifted_hypergraphs[j], shifted_v, offset);
+            end if;
+        end for;
+    end for;
+
+    // Step 2c: Merge all shifted mountain ranges into a single hypergraph
+    merged_hypergraph := shifted_hypergraphs[1];
+    for i in [2..#shifted_hypergraphs] do
+        // Merge merged_hypergraph and shifted_mountain_ranges[i] without connecting any vertices
+        for j in [1..Max(#merged_hypergraph, #shifted_hypergraphs[i])] do
+            edges1 := j le #merged_hypergraph select merged_hypergraph[j] else [];
+            edges2 := j le #shifted_hypergraphs[i] select shifted_hypergraphs[i][j] else [];
+            if j le #merged_hypergraph then
+                merged_hypergraph[j] := edges1 cat edges2;
+            else
+                Append(~merged_hypergraph, edges2);
+            end if;
+        end for;
+    end for;
+
+
+    finalHG, final_max_vertex, final_translation, final_inv_translation := CleanHG(merged_hypergraph);
+
+return finalHG, final_max_vertex;
+end function;
+
+
+
+CreateConnectedMountainRanges := function(lengths, connections)//This code was generated with Copilot, it still needs to be adjusted to work
+    // lengths: sequence of integers, each is the length of a mountain range
+    // connections: list of tuples, each of the form <0,1,8,0,7>, meaning that mountain range 2,3, and 5 are all connected at vertex 1,8, and 7 respectively
+    // Suppose you have 4 mountain ranges, and you want to connect:
+    // - mountain 1 at vertex 3 to mountain 2 at vertex 1
+    // - mountain 2 at vertex 5 to mountain 4 at vertex 2
+    // Then, connections would be:
+    // [ <3, 1, 0, 0>, <0, 5, 0, 2> ]
+    //
+    // Each tuple is <i, v1, j, v2> meaning connect mountain i at vertex v1 to mountain j at vertex v2.
+    //end function;
+    // Step 1: Create all mountain ranges
+    mountain_ranges := [];
+    for i in [1..#lengths] do
+        range := MountainRangeMaker(lengths[i]);
+        Append(~mountain_ranges, range);
+    end for;
+
+
+
+    finalHG, final_max_vertex:= CreateConnectedHypergraphs(mountain_ranges, connections);
+
+return finalHG, final_max_vertex;
+end function;
+

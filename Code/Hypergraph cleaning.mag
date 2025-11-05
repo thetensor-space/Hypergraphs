@@ -1,0 +1,120 @@
+OrganizeHypergraph:=function(DisorganizedHyper) //Take a enumerated set of enumerated sets {{1},{2,3},{1,2,3}}$, and organize it via enumerated set cardinality. No labeling, leaving that to CleanHG.
+    clean_graph:=[[]];
+    max_len:=1;
+    for edge in DisorganizedHyper do
+        len:=#edge;
+        loop_end:=len-max_len;
+        for i:= 1 to loop_end do//Add additional bins for hyperedge lengths as they occur.
+            Append(~clean_graph,[]);
+        end for;
+        new_max:=Max({len,max_len});
+        max_len:=new_max;//establish current maximum hyperedge size.
+        Include(~clean_graph[len],edge);
+    end for;
+//At extraction, use IndexedSetToSet to remove the indexing of the edge set (which is forced upon us)
+    return clean_graph;
+end function; 
+
+
+
+
+CleanHG:=function(Badhypergraph)//If a hypergraph has a weird labeling of vertices, this cleans that up. 
+    cleangraph:=[];
+    oldlabel:={@@};
+    n:=#Badhypergraph;
+
+    for i in  {1..n} do 
+        DFace:=Badhypergraph[i];
+        d:=#DFace;
+        for j in {1..d} do
+            edge:=DFace[j];
+            for vertex in edge do
+                Include(~oldlabel, vertex);
+            end for;
+        end for;
+    end for;
+    m:=#oldlabel;
+    maxold,_:=Max(oldlabel);
+
+    if maxold eq m then
+        mapgraph:=[];
+        for i in {1..m} do
+            Include(~mapgraph,<oldlabel[i],oldlabel[i]>);
+        end for;
+        newlabel:= {@ i: i in {1..m} @};
+        translation:=map< oldlabel -> newlabel | mapgraph>;
+        for i:=1 to #Badhypergraph do
+            newdgraph:=[];
+            for faces in Badhypergraph[i] do
+                Include(~newdgraph, translation(faces));
+            end for;
+            Append(~cleangraph, newdgraph);
+        end for;
+        inv_translation:=translation;
+        return cleangraph, m, translation, inv_translation;
+    else
+        mapgraph:=[];
+        for i in {1..m} do
+            Include(~mapgraph,<oldlabel[i],i>);
+        end for;
+        invmapgraph:=[];
+        for i in {1..m} do
+            Include(~invmapgraph,<i,oldlabel[i]>);
+        end for;
+        newlabel:= {@ i: i in {1..m} @};
+        translation:=map< oldlabel -> newlabel | mapgraph>;
+        inv_translation:=map< newlabel -> oldlabel | invmapgraph>;
+        for i:=1 to #Badhypergraph do
+            newdgraph:=[];
+            for faces in Badhypergraph[i] do
+                Include(~newdgraph, translation(faces));
+            end for;
+            Append(~cleangraph, newdgraph);
+        end for;
+        return cleangraph, m, translation,inv_translation; // output the relabeled hypergraph, the number of distinct vertices in the hypergraph, and the translation from old vertex names to new vertex names
+    end if;
+end function;
+
+HGScrambler:=function(CleanHG) //Use this if you want to test resilience to relabeling vertices.
+    cleangraph:=[];
+    oldlabel:={@@};
+    n:=#CleanHG;
+
+    for i in  {1..n} do 
+        DFace:=CleanHG[i];
+        d:=#DFace;
+        for j in {1..d} do
+            edge:=DFace[j];
+            for vertex in edge do
+                Include(~oldlabel, vertex);
+            end for;
+        end for;
+    end for;
+    m:=#oldlabel;
+    sym_m:=Sym(m); //create the symmetric group on m letters (the vertices)
+    perm:=Random(sym_m); //choose a random permutation
+    perm_matrix:=PermutationMatrix(Rationals(),perm);//created the permutation matrix of the permutation
+    rows_perm:=RowSequence(perm_matrix);
+  
+    mapgraph:=[];
+    for i in {1..m} do
+        Include(~mapgraph,<oldlabel[i],Index(rows_perm[i], 1)>);//make a map that will relabel vertices according to the previously made permutation, Index will take the row i and state which column 1 occurs in, essentially defining $i->j$ for a permutation.
+    end for;
+    invmapgraph:=[];
+    for i in {1..m} do
+        Include(~invmapgraph,<Index(rows_perm[i], 1),oldlabel[i]>);
+    end for;
+    newlabel:= {@ i: i in {1..m} @};
+    translation:=map< oldlabel -> newlabel | mapgraph>;
+    inv_translation:=map< newlabel -> oldlabel | invmapgraph>;
+    for i:=1 to #CleanHG do
+        newdgraph:=[];
+        for faces in CleanHG[i] do
+            Include(~newdgraph, translation(faces));
+        end for;
+        Append(~cleangraph, newdgraph);
+    end for;
+    inv_translation:=translation;
+    return cleangraph, m, translation, inv_translation;
+
+end function;

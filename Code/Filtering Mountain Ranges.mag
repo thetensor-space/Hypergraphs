@@ -1,0 +1,131 @@
+//input:
+    //Adjacency Tensor of the d-uniform hypergraph
+    //field K (Tyupically Rationals())
+//output:
+    //identification of vertices contained in the socle
+
+function VertexInSocle(adj_tensor,d,K)
+    Der:=DerivationAlgebra(adj_tensor);//create the derivation algebra
+    _,D1:=Induce(Der,1);//induce on the first component
+    RD1:=RModule(D1);//Making the RModule that D1 acts on
+    Dim_RMod:=Dimension(RD1);//Keeping track of how many vertices are in
+    a,b,t:=SocleSeries(RD1);//constructing the socle series
+    socle_list:=[**];
+    for i:=1 to #b do
+        Append(~socle_list, [RD1.j in a[i]: j in [1..Dim_RMod]] );
+    end for;
+    return socle_list;
+end function;
+
+//---------------------------------------------------------
+
+//input:
+    //A d-uniform hypergraph
+    //The list of which vertices of the hypergraph are elements of the socle
+    //A boolean which says whether vertices are distinguished if they are in or NOT in the socle
+
+//output:
+    //discarded_hypergraph: hyperedges that were removed within the algorithm
+    //preserved_hypergraph: hyperedge which is used in subsequent recursive steps
+function HyperedgeCutter(hypergraph, d, socle_test, socle_looking_true)
+    discarded_hypergraph:=hypergraph;//Hypergraph which records which hyperedges were discarded
+    preserved_hypergraph:=[];//Hypergraph which records which hyperedges were not discarded
+    for i:=1 to d-1 do
+        Append(~preserved_hypergraph,[]);//initialize new hypergraph
+    end for;
+
+    distinguished_hyperedges:={};//this will save the distinguished hyperedges. It needs to be an enumerated set to account for repetition of hyperedges being added multiple times. 
+
+    for i:= 1 to #hypergraph[d] do//check each hyperedges
+        for j:= 1 to #socle_test do//each vertex has a boolean value to assign it (in socle) or (not in socle)
+            if socle_looking_true xor (not socle_test[j]) then //if socle_looking_true is T/F with the exclusive or of NOT the truth value of the vertex. This simplifies the code for identifying vertices based on whether or not they are in the socle. Distinguished hyperedges will be those with at least one distinguished vertex.
+                if j in hypergraph[d][i] then// if the distinguished vertex is in the hyperedge
+                    Include(~distinguished_hyperedges,hypergraph[d][i]); //add that hyperedge to our distinguished hyperedges
+                end if;
+                if j in discarded_hypergraph[d][i] then//if the distinguished vertex is in the hyperedge
+                    Exclude(~discarded_hypergraph[d][i],j);//Delete that vertex, as that hyperedge was distinguished
+                end if;
+
+            end if;
+        end for;
+    end for;
+
+    for edge in discarded_hypergraph[d] do //for each hyperedge in the hypergraph
+        if #edge ne d then//If that hypergraph had a vertex removed/distinguished vertex
+            Exclude(~discarded_hypergraph[d],edge); //remove that hyperedge
+        end if;
+    end for;
+
+    preserved_hyperedges:=SetToSequence(distinguished_hyperedges);//convert to sequence to remove possibly repeated hyperedges.
+    Append(~preserved_hypergraph,preserved_hyperedges);//add preserved hyperedges to preserved hypergraph
+
+
+return discarded_hypergraph, preserved_hypergraph;
+
+end function;
+//-----------------------------------------
+
+
+
+
+
+
+//input: 
+    //d-uniform hypergraph
+    //field K (typically Rationals())
+//output:
+
+//new_hypergraphbool is used to record the induction
+//socle_looking_true:=true means to distinguish vertices if they ARE in the socle. Set to false to distinguish vertices if they ARE NOT in the socle.
+function HyperDecomposition(current_hypergraph,d,K: old_preserved_history:=[**], old_discarded_history:=[**], old_translator:=[**], old_hypergraph_history:=[**], old_socle_history:=[**], new_hyper_bool:=false, socle_looking_true:=true, old_list_of_edges:=[])
+    Realtime();
+    Is_socle_looking_true:=socle_looking_true;//making sure this saves throughout the recursion
+    //The following if/then initializes objects and records data. It also does some cleaning of hypergraphs (just in case)
+    if new_hyper_bool then//If we are within the induction
+        current_hypergraph_history:=old_hypergraph_history;
+        Append(~current_hypergraph_history, [*"Hypergraph initialized in recursive step", current_hypergraph*]);
+        hypergraph, m, translation_new_hypergraph,inv_translation:=CleanHG(current_hypergraph); //Make sure hypergraph is clean
+        Append(~current_hypergraph_history,[*"hypergraph cleaned in recursive step", hypergraph*]);
+        current_translator:=old_translator;//save possible name changes
+        Append(~current_translator, [*"translation from cleaning HG within induction step",translation_new_hypergraph*]);
+        current_list_of_edges:=old_list_of_edges;
+        Append(~current_list_of_edges, #hypergraph[d]);//Keep track of how many total hyperedges we have
+        current_discarded_history:=old_discarded_history;//save the previous discarded hyperedges
+        current_preserved_history:=old_preserved_history;//save the previous preserved hyperedges
+        current_socle_history:=old_socle_history;//save the list of socles membership we used for our determination of distinguished vertices. 
+    else// We have just started, we must initialize everything before induction begins
+        current_hypergraph_history:=old_hypergraph_history;//initialize history of all hypergraphs
+        Append(~current_hypergraph_history,[*"hypergraph initialized at beginning of algorithm" ,current_hypergraph *]);
+        hypergraph, _, translation_initial_hypergraph:=CleanHG(current_hypergraph);  //make sure hypergraph starts out clean
+        Append(~current_hypergraph_history,[*"hypergraph cleaned in initial setup", hypergraph*]);
+        current_translator:=old_translator;//save possible name changes
+        Append(~current_translator, [*"translation from initializing HG at first step",translation_initial_hypergraph*]);
+        current_list_of_edges:=old_list_of_edges;
+        Append(~current_list_of_edges, #hypergraph[d]);//Keep track of how many total hyperedges we have
+        current_discarded_history:=old_discarded_history;//initialize the discarded hyperedges
+        current_preserved_history:=old_preserved_history;//initialize the preserved hyperedges
+        current_socle_history:=old_socle_history;//initialize the list of socles membership we use for our determination of distinguished vertices. 
+    end if;
+   
+    tensor,m,translation := HypergraphToTensor(hypergraph, d, K); //make the tensor
+    Append(~current_translator, [*"translation from creating tensor from hypergraph",translation*]);//At this step, the HypergraphToTensor does not re-translate since CleanHG has already been applied to everything, and CleanHG is idempotent, and is the identity so long as the labeling 1-m are being used for the set of m vertices. So adding this to translators is a sanity check
+    socle_list:=VertexInSocle(tensor,d,K);//record the vertex identification in regards to membership in the socle.
+
+    socle_test:=socle_list[1];//saving the boolean values to determine which hyperedges are removed
+    Append(~current_socle_history, socle_test);
+    discarded_hypergraph, preserved_hypergraph:=HyperedgeCutter(hypergraph, d, socle_test, socle_looking_true);
+
+    Append(~current_preserved_history, preserved_hypergraph);
+    Append(~current_discarded_history, discarded_hypergraph);
+
+    if #hypergraph[d] eq #preserved_hypergraph[d] then//no hyperedges were removed
+        print("Recursion ends because Socle is no longer catching mountain peaks in first module");
+        Realtime();
+        Append(~current_hypergraph_history, [*"final discarded hypergraph at algorithm termination", preserved_hypergraph*]);
+        return  current_preserved_history, current_discarded_history, current_translator, current_hypergraph_history, current_socle_history, current_list_of_edges, hypergraph;
+    else
+        print("Entering next level of recursion");
+        return HyperDecomposition(current_hypergraph,d,K: old_preserved_history:=current_preserved_history, old_discarded_history:=current_discarded_history, old_translator:=current_translator, old_hypergraph_history:=current_hypergraph_history, old_socle_history:=current_socle_history, new_hyper_bool:=true, socle_looking_true:=Is_socle_looking_true, old_list_of_edges:=current_list_of_edges);
+    end if;
+end function;
+

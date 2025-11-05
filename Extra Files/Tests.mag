@@ -1,0 +1,41 @@
+TensorTest:=function(tensor)
+    FullyNonDegen:=IsFullyNondegenerate(tensor);
+    Der:=DerivationAlgebra(tensor);
+    return FullyNonDegen, Der;
+end function;
+
+
+
+DerTest:=function(Der)
+    solve:=IsSoluble(Der);
+    dim:=Dimension(Der);
+    abelian:=IsAbelian(Der);
+    algbool, LeviDer:=HasLeviSubalgebra(Der);
+    d:=Dimension(LeviDer);
+    if d eq 0 then
+        semi:="Levi Subalgebra has dimension 0";
+    else
+        semi:=SemisimpleType(LeviDer);    
+    end if;
+    RModDer:=RModule(Der);
+    //irreducible:= IsIrreducible(RModDer);
+    //comp:=CompositionSeries(RModDer);
+    //cart:=CartanSubalgebra(Der);
+    //dim_cart:=Dimension(cart);
+    return  solve, dim, abelian, semi, RModDer;
+end function;
+
+
+
+
+DerivationMatrix:=function(Der,dimDer:K:=Rationals())
+    P:=PolynomialRing(K,dimDer);
+    MA:=MatrixAlgebra(P,Degree(Der)); //make sure this is the dimension of the vector space for Der, i.e. degree x degree matrix algebra.
+    mats:=[P.i*(MA!(Der.i)): i in [1.. dimDer]];
+    DerMat:=&+mats;
+    return DerMat;
+end function;
+
+
+
+

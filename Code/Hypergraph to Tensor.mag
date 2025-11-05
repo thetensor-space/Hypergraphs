@@ -1,0 +1,22 @@
+
+HypergraphToTensor:=function(BadHypergraph, d, K)
+    cleanHG,n,translation,inv_translation:=CleanHG(BadHypergraph);
+    hypergraph:=cleanHG[d];//isolate the d-faces of the hypergraph
+    frame:=[n: i in [1..d]];// make a V^n -> K tensor
+    Append(~frame,1);
+    T:= KTensorSpace(K, frame);
+    t:=T!0;//isolate the zero element
+    faces:= hypergraph;//renaming to make things look nice
+    for face in faces do//for each hyperedge
+        PermFace:=Permutations(face);//take all permutations of the elements
+        for PermSeq in PermFace do//for each permutation
+            FixedPerm:=Append(PermSeq,1);//making sure objects save correctly and don't get overwritten
+            Assign(~t,FixedPerm, 1);//at that input coordinate, assign a value of 1 to the tensor
+        end for;
+    end for;
+    //uncomment the following if you want to experiment with asserting that t is symmetric (which it is), or considering the associated fully nondegenerate tensor.
+    // s:=SymmetricTensor(t);
+    // u:=FullyNondegenerateTensor(s);
+    return t,n,translation;
+end function;
+
