@@ -2,7 +2,7 @@
 
 A reference page for the Hypergraph Toolkit: a small library for studying the adjacency tensors of hypergraphs. This code is written in [Magma](https://magma.maths.usyd.edu.au/magma/). More work needs to be done to implement this in python or other commonly used languages.
 
-![Hypergraph diagram](./images/trade.png)
+![Hypergraph diagram](./hypergraphs/trade.png)
 
 
 
@@ -37,12 +37,12 @@ We will continue to use this informal definition, but note that we are implicitl
 
 In this package, all hyperedges are enumerated sets. So for the following hypergraph
 
-![simple hypergraph](./images/four%20edge%20hypergraph.png)
+![simple hypergraph](./hypergraphs/four%20edge%20hypergraph.png)
 
 the hyperedges are $\{1,2,3\}$, $\{3,4,5\}$, $\{5,6,7\}$, and $\{3,5,8\}$. To store a hypergraph, the optimal organization is to collect hyperedges by cardinality, i.e. $\{1,2\}$ is collected with $\{3,4\}$, but not together with $\{1,2,3\}$.  Each collection of hyperedges of the same cardinality is collected in a list, so $[\{1,2\},\{3,4\}]$, and $[\{1,2,3\},\{4,5,6\}]$. In the previous hypergraph, the hyperedges are all collected in a list $[ \{1,2,3\}, \{3,4,5\}, \{5,6,7\},\{3,5,8\}]$.
 
 Once hyperedges of the same cardinality are collected, the hypergraph is an ordered list of these collections of hyperedges. The ordering is according to the cardinality of the hyperedges. So the following hypergraph 
-![Example Hypergraph](./images/toy%20hypergraph.png)
+![Example Hypergraph](./hypergraphs/toy%20hypergraph.png)
 
  is read as $[[\{1\},\{3\},\{4\}], [\{1,2\},\{1,3\},\{3,4\}],[\{1,2,3\},\{2,3,4\},\{3,4,5\}]]$
 
