@@ -65,11 +65,6 @@ d:=3; //Specify d-uniform hypergraph
 K:=Rationals();
 preserved_edges, discarded_edges, translations, hyperedge_history:= HyperDecomposition(organized_hypergraph,d,K);
 discarded_edges; //shows which hyperedges were discarded at each step of the recursion
-preserved_edges;//shows which hyperedges were not discarded at each step
-translations;//throughout the algorithm, vertices are relabeled
-hyperedge_history;//Show where translations occur
-
-discarded_edges; //shows which hyperedges were discarded at each step of the recursion
 [*
     [
         [
@@ -85,7 +80,7 @@ discarded_edges; //shows which hyperedges were discarded at each step of the rec
         []
     ]
 *]
-> preserved_edges;//shows which hyperedges were not discarded at each step
+preserved_edges;//shows which hyperedges were not discarded at each step
 [*
     [
         [],
@@ -97,7 +92,7 @@ discarded_edges; //shows which hyperedges were discarded at each step of the rec
         ]
     ]
 *]
-> translations;//throughout the algorithm, vertices are relabeled
+translations;//throughout the algorithm, vertices are relabeled
 [* [* translation from initializing HG at first step,
     Mapping from: {@ 3, 1, 4, 2, 5 @} to {@ 1, 2, 3, 4, 5 @}
         <3, 3>
@@ -113,7 +108,7 @@ discarded_edges; //shows which hyperedges were discarded at each step of the rec
         <2, 2>
         <5, 5>
 *] *]
-> hyperedge_history;//Show where translations occur
+hyperedge_history;//Show where translations occur
 [* [* hypergraph initialized at beginning of algorithm,
     [
         [
@@ -162,8 +157,6 @@ discarded_edges; //shows which hyperedges were discarded at each step of the rec
     ]
 *] *]
 >
-
-
 ```
 
 ## Additional Features
@@ -197,5 +190,3 @@ mountainrange;
 
 
 The functions in Tests give various tests that can be done to the associated algebras, i.e. the derivation algebra. 
-
-
