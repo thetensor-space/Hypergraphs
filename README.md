@@ -59,7 +59,7 @@ The following is an example of how the program identifies features
 
 
 ```magma
-unorganized_hypergraph:={{1,2,3},{3,4,5},{5,6,7},{7,8,9},{9,10,11},{11,12,13},{13,14,15}, {5,17,18},{5,16,18},{5,16,17},{16,17,18},{10,19,20},{10,19,21},{10,20,21},{19,20,21},{6,21,22},{17,20,22},{15,23,24},{24,25,26},{27,28,29},{1,29,30}};
+unorganized_hypergraph:={{ 3 }, { 1 }, { 4 }, { 1, 3 }, { 1, 2 }, { 3, 4 },{ 1, 2, 3 }, { 2, 3, 4 }, { 3, 4, 5 }};
 organized_hypergraph:=OrganizeHypergraph(unorganized_hypergraph);
 d:=3; //Specify d-uniform hypergraph
 K:=Rationals();
@@ -69,6 +69,99 @@ preserved_edges;//shows which hyperedges were not discarded at each step
 translations;//throughout the algorithm, vertices are relabeled
 hyperedge_history;//Show where translations occur
 
+discarded_edges; //shows which hyperedges were discarded at each step of the recursion
+[*
+    [
+        [
+            { 3 },
+            { 1 },
+            { 4 }
+        ],
+        [
+            { 1, 3 },
+            { 1, 2 },
+            { 3, 4 }
+        ],
+        []
+    ]
+*]
+> preserved_edges;//shows which hyperedges were not discarded at each step
+[*
+    [
+        [],
+        [],
+        [
+            { 2, 3, 4 },
+            { 1, 2, 3 },
+            { 3, 4, 5 }
+        ]
+    ]
+*]
+> translations;//throughout the algorithm, vertices are relabeled
+[* [* translation from initializing HG at first step,
+    Mapping from: {@ 3, 1, 4, 2, 5 @} to {@ 1, 2, 3, 4, 5 @}
+        <3, 3>
+        <1, 1>
+        <4, 4>
+        <2, 2>
+        <5, 5>
+*], [* translation from creating tensor from hypergraph,
+    Mapping from: {@ 3, 1, 4, 2, 5 @} to {@ 1, 2, 3, 4, 5 @}
+        <3, 3>
+        <1, 1>
+        <4, 4>
+        <2, 2>
+        <5, 5>
+*] *]
+> hyperedge_history;//Show where translations occur
+[* [* hypergraph initialized at beginning of algorithm,
+    [
+        [
+            { 3 },
+            { 1 },
+            { 4 }
+        ],
+        [
+            { 1, 3 },
+            { 1, 2 },
+            { 3, 4 }
+        ],
+        [
+            { 1, 2, 3 },
+            { 2, 3, 4 },
+            { 3, 4, 5 }
+        ]
+    ]
+*], [* hypergraph cleaned in initial setup,
+    [
+        [
+            { 3 },
+            { 1 },
+            { 4 }
+        ],
+        [
+            { 1, 3 },
+            { 1, 2 },
+            { 3, 4 }
+        ],
+        [
+            { 1, 2, 3 },
+            { 2, 3, 4 },
+            { 3, 4, 5 }
+        ]
+    ]
+*], [* final discarded hypergraph at algorithm termination,
+    [
+        [],
+        [],
+        [
+            { 2, 3, 4 },
+            { 1, 2, 3 },
+            { 3, 4, 5 }
+        ]
+    ]
+*] *]
+>
 
 
 ```
