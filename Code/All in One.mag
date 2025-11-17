@@ -605,7 +605,7 @@ function HyperDecomposition(current_hypergraph,d,K: old_preserved_history:=[**],
         // print("hypergraph;");
         // hypergraph;
         // print("Entering next level of recursion");
-        return HyperDecomposition(current_hypergraph,d,K: old_preserved_history:=current_preserved_history, old_discarded_history:=current_discarded_history, old_translator:=current_translator, old_hypergraph_history:=current_hypergraph_history, old_socle_history:=current_socle_history, new_hyper_bool:=true, socle_looking_true:=Is_socle_looking_true, old_list_of_edges:=current_list_of_edges);
+        return HyperDecomposition(preserved_hypergraph,d,K: old_preserved_history:=current_preserved_history, old_discarded_history:=current_discarded_history, old_translator:=current_translator, old_hypergraph_history:=current_hypergraph_history, old_socle_history:=current_socle_history, new_hyper_bool:=true, socle_looking_true:=Is_socle_looking_true, old_list_of_edges:=current_list_of_edges);
     end if;
 end function;
 
